@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Stock Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080a0f;
+    --surface: #0e1117;
+    --card: #13161e;
+    --border: #1e2330;
+    --accent: #00e5ff;
+    --accent2: #7b61ff;
+    --green: #00e09a;
+    --red: #ff4d6a;
+    --text: #e8eaf0;
+    --muted: #4a5068;
+    --dim: #8890a8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%;
+    left: -20%;
+    width: 70vw;
+    height: 70vw;
+    background: radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -40%;
+    right: -20%;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(123,97,255,0.05) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-tag {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .logo-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .sidebar-section {
+    padding: 20px 16px 8px;
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .stock-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin: 2px 8px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    text-align: left;
+    width: calc(100% - 16px);
+  }
+  .stock-btn:hover { background: var(--card); color: var(--text); }
+  .stock-btn.active {
+    background: rgba(0,229,255,0.08);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.15);
+  }
+  .stock-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .stock-btn.active .stock-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  .compare-section {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .compare-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .compare-btn {
+    width: 100%;
+    padding: 10px;
+    background: rgba(123,97,255,0.1);
+    border: 1px solid rgba(123,97,255,0.25);
+    border-radius: 8px;
+    color: var(--accent2);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .compare-btn:hover { background: rgba(123,97,255,0.2); }
+
+  /* Main */
+  .main { flex: 1; padding: 32px 36px; overflow-y: auto; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .page-title span { color: var(--accent); }
+
+  .range-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .range-tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .range-tab.active { background: var(--accent); color: #000; font-weight: 500; }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .stat-card:hover { border-color: rgba(0,229,255,0.2); }
+  .stat-card:hover::before { opacity: 1; }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .badge-green { background: rgba(0,224,154,0.12); color: var(--green); }
+  .badge-red { background: rgba(255,77,106,0.12); color: var(--red); }
+
+  /* Chart area */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .chart-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  canvas { max-height: 300px; }
+
+  /* Bottom row */
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .mini-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .mini-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .data-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .data-row:last-child { border-bottom: none; }
+  .data-key { color: var(--dim); }
+  .data-val { color: var(--text); font-weight: 500; }
+  .data-val.up { color: var(--green); }
+  .data-val.down { color: var(--red); }
+
+  /* Compare modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,10,15,0.85);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 640px;
+    max-width: 95vw;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+  }
+  .modal-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .modal-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+  }
+  .modal-run {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 24px;
+    transition: opacity 0.2s;
+  }
+  .modal-run:hover { opacity: 0.88; }
+
+  /* Loading */
+  .loader {
+    display: none;
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .loader.show { display: block; }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .loader span { animation: pulse 1.4s infinite; }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-tag">NSE · Live Data</div>
+      <div class="logo-title">Stock<br>Intelligence</div>
+    </div>
+    <div class="sidebar-section">Markets</div>
+    <div id="stockList"></div>
+    <div class="compare-section">
+      <div class="compare-label">Tools</div>
+      <button class="compare-btn" onclick="openCompare()">⇄ Compare Stocks</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">Select a <span>stock</span></div>
+      <div class="range-tabs">
+        <button class="range-tab active" onclick="setRange(30, this)">30D</button>
+        <button class="range-tab" onclick="setRange(90, this)">90D</button>
+        <button class="range-tab" onclick="setRange(180, this)">180D</button>
+      </div>
+    </div>
+
+    <div class="loader show" id="loader"><span>LOADING MARKET DATA...</span></div>
+
+    <div id="dashboard" style="display:none">
+      <!-- Stats -->
+      <div class="stats-row fade-up">
+        <div class="stat-card">
+          <div class="stat-label">52W High</div>
+          <div class="stat-value" id="s52h">—</div>
+          <div class="stat-sub">Annual peak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">52W Low</div>
+          <div class="stat-value" id="s52l">—</div>
+          <div class="stat-sub">Annual floor</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Close</div>
+          <div class="stat-value" id="savg">—</div>
+          <div class="stat-sub">52-week avg</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Volatility</div>
+          <div class="stat-value" id="svol">—</div>
+          <div class="stat-sub" id="sret">Avg daily return</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-card fade-up">
+        <div class="chart-header">
+          <div class="chart-title">Price History</div>
+          <div class="chart-legend">
+            <span><span class="legend-dot" style="background:var(--accent)"></span>Close</span>
+            <span><span class="legend-dot" style="background:var(--accent2)"></span>MA7</span>
+          </div>
+        </div>
+        <canvas id="priceChart"></canvas>
+      </div>
+
+      <!-- Bottom -->
+      <div class="bottom-row fade-up">
+        <div class="mini-card">
+          <div class="mini-title">Recent Sessions</div>
+          <div id="recentRows"></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-title">Key Metrics</div>
+          <div id="metricsRows"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Compare Modal -->
+<div class="modal-overlay" id="compareModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Compare Stocks</div>
+      <button class="modal-close" onclick="closeCompare()">✕</button>
+    </div>
+    <div class="modal-selects">
+      <select class="modal-select" id="cSym1"></select>
+      <select class="modal-select" id="cSym2"></select>
+    </div>
+    <button class="modal-run" onclick="runCompare()">Run Comparison</button>
+    <canvas id="compareChart" style="max-height:260px"></canvas>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8001';
+let allSymbols = [];
+let currentSymbol = null;
+let currentDays = 30;
+let priceChartInst = null;
+let compareChartInst = null;
+
+async function init() {
+  const res = await fetch(`${API}/companies`);
+  const data = await res.json();
+  allSymbols = data.symbols;
+  const list = document.getElementById('stockList');
+  const s1 = document.getElementById('cSym1');
+  const s2 = document.getElementById('cSym2');
+
+  data.symbols.forEach((sym, i) => {
+    const name = sym.replace('.NS', '');
+    const btn = document.createElement('button');
+    btn.className = 'stock-btn';
+    btn.innerHTML = `<span class="stock-dot"></span>${name}`;
+    btn.onclick = () => loadStock(sym, btn);
+    list.appendChild(btn);
+
+    [s1, s2].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  });
+
+  // auto-load first
+  list.firstChild.click();
+}
+
+async function loadStock(symbol, btn) {
+  currentSymbol = symbol;
+  document.querySelectorAll('.stock-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const name = symbol.replace('.NS', '');
+  document.getElementById('pageTitle').innerHTML = `<span>${name}</span> Overview`;
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loader').classList.add('show');
+
+  const [stockRes, summRes] = await Promise.all([
+    fetch(`${API}/data/${name}`),
+    fetch(`${API}/summary/${name}`)
+  ]);
+  const stockData = await stockRes.json();
+  const summary = await summRes.json();
+
+  // filter by range
+  renderDashboard(stockData, summary, name);
+}
+
+function setRange(days, tab) {
+  currentDays = days;
+  document.querySelectorAll('.range-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  if (currentSymbol) {
+    const active = document.querySelector('.stock-btn.active');
+    loadStock(currentSymbol, active);
+  }
+}
+
+function renderDashboard(data, summary, name) {
+  document.getElementById('loader').classList.remove('show');
+  document.getElementById('dashboard').style.display = 'block';
+
+  // Summary stats
+  document.getElementById('s52h').textContent = `₹${summary['52w_high'].toLocaleString()}`;
+  document.getElementById('s52l').textContent = `₹${summary['52w_low'].toLocaleString()}`;
+  document.getElementById('savg').textContent = `₹${summary['avg_close'].toLocaleString()}`;
+  document.getElementById('svol').textContent = `${summary['volatility_score']}%`;
+  const ret = summary['avg_daily_return'];
+  document.getElementById('sret').textContent = `${ret >= 0 ? '+' : ''}${ret}% avg return`;
+
+  // Slice data by range
+  const sliced = data.slice(-currentDays);
+  const labels = sliced.map(d => d.date.slice(5));
+  const closes = sliced.map(d => d.close);
+  const ma7 = sliced.map(d => d.moving_avg_7);
+
+  // Chart
+  if (priceChartInst) priceChartInst.destroy();
+  const ctx = document.getElementById('priceChart').getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 300);
+  grad.addColorStop(0, 'rgba(0,229,255,0.18)');
+  grad.addColorStop(1, 'rgba(0,229,255,0)');
+
+  priceChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Close',
+          data: closes,
+          borderColor: '#00e5ff',
+          borderWidth: 2,
+          backgroundColor: grad,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'MA7',
+          data: ma7,
+          borderColor: '#7b61ff',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          fill: false,
+          tension: 0.4,
+          pointRadius: 0,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#13161e',
+          borderColor: '#1e2330',
+          borderWidth: 1,
+          titleColor: '#8890a8',
+          bodyColor: '#e8eaf0',
+          callbacks: {
+            label: ctx => ` ₹${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(30,35,48,0.8)' },
+          ticks: { color: '#4a5068', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8 }
+        },
+        y: {
+          grid: { color: 'rgba(30,35,48,0.8)' },
+          ticks: { color: '#4a5068', font: { family: 'DM Mono', size: 10 }, callback: v => `₹${v}` }
+        }
+      }
+    }
+  });
+
+  // Recent rows
+  const recent = sliced.slice(-5).reverse();
+  document.getElementById('recentRows').innerHTML = recent.map(d => {
+    const ret = (d.daily_return * 100).toFixed(2);
+    const cls = ret >= 0 ? 'up' : 'down';
+    return `<div class="data-row">
+      <span class="data-key">${d.date}</span>
+      <span class="data-val">₹${d.close}</span>
+      <span class="data-val ${cls}">${ret >= 0 ? '+' : ''}${ret}%</span>
+    </div>`;
+  }).join('');
+
+  // Metrics
+  const latest = sliced[sliced.length - 1];
+  document.getElementById('metricsRows').innerHTML = `
+    <div class="data-row"><span class="data-key">Open</span><span class="data-val">₹${latest.open}</span></div>
+    <div class="data-row"><span class="data-key">High</span><span class="data-val up">₹${latest.high}</span></div>
+    <div class="data-row"><span class="data-key">Low</span><span class="data-val down">₹${latest.low}</span></div>
+    <div class="data-row"><span class="data-key">Volume</span><span class="data-val">${(latest.volume/1e6).toFixed(2)}M</span></div>
+    <div class="data-row"><span class="data-key">MA7</span><span class="data-val">₹${latest.moving_avg_7 || '—'}</span></div>
+  `;
+}
+
+function openCompare() { document.getElementById('compareModal').classList.add('open'); }
+function closeCompare() { document.getElementById('compareModal').classList.remove('open'); }
+
+async function runCompare() {
+  const s1 = document.getElementById('cSym1').value;
+  const s2 = document.getElementById('cSym2').value;
+  const res = await fetch(`${API}/compare?symbol1=${s1}&symbol2=${s2}`);
+  const data = await res.json();
+
+  if (compareChartInst) compareChartInst.destroy();
+  const ctx = document.getElementById('compareChart').getContext('2d');
+  const d1 = data[s1]; const d2 = data[s2];
+
+  compareChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d1.dates.map(d => d.slice(5)),
+      datasets: [
+        { label: s1, data: d1.normalized, borderColor: '#00e5ff', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0 },
+        { label: s2, data: d2.normalized, borderColor: '#ff4d6a', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8890a8', font: { family: 'DM Mono', size: 11 } } },
+        tooltip: {
+          backgroundColor: '#13161e',
+          borderColor: '#1e2330',
+          borderWidth: 1,
+          bodyColor: '#e8eaf0',
+          callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(2)}%` }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(30,35,48,0.8)' }, ticks: { color: '#4a5068', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(30,35,48,0.8)' }, ticks: { color: '#4a5068', font: { family: 'DM Mono', size: 10 }, callback: v => `${v}%` } }
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
