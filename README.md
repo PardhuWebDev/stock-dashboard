@@ -18,7 +18,7 @@ REST API, and visualizes insights through an interactive dashboard.
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/stock-dashboard.git
+git clone https://github.com/PardhuWebDev/stock-dashboard.git
 cd stock-dashboard
 ```
 
