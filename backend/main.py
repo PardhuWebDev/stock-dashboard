@@ -78,7 +78,6 @@ def get_summary(symbol: str, db: Session = Depends(get_db)):
         "volatility_score": round((max(closes) - min(closes)) / min(closes) * 100, 2),
         "avg_daily_return": round(sum(returns) / len(returns) * 100, 4),
     }
-
 @app.get("/compare")
 def compare_stocks(symbol1: str, symbol2: str, db: Session = Depends(get_db)):
     def get_data(sym):
@@ -104,6 +103,59 @@ def compare_stocks(symbol1: str, symbol2: str, db: Session = Depends(get_db)):
         symbol1: {"dates": [str(r.date) for r in rows1], "normalized": normalize(rows1)},
         symbol2: {"dates": [str(r.date) for r in rows2], "normalized": normalize(rows2)},
     }
+
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+from pydantic import BaseModel
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+class ChatRequest(BaseModel):
+    message: str
+
+@app.post("/chat")
+def chat(req: ChatRequest, db: Session = Depends(get_db)):
+    try:
+        context_lines = []
+        for sym in SYMBOLS:
+            name = sym.replace(".NS", "")
+            rows = db.query(StockPrice).filter(StockPrice.symbol == sym).order_by(StockPrice.date.desc()).limit(30).all()
+            if not rows:
+                continue
+            closes = [r.close for r in rows]
+            returns = [r.daily_return for r in rows if r.daily_return is not None]
+            latest = rows[0]
+            avg_return = round(sum(returns) / len(returns) * 100, 4) if returns else 0
+            min_close = min(closes)
+            volatility = round((max(closes) - min_close) / min_close * 100, 2) if min_close > 0 else 0
+            context_lines.append(
+                f"{name}: latest_close=₹{latest.close}, 30d_avg_return={avg_return}%, "
+                f"volatility={volatility}%, high=₹{max(closes)}, low=₹{min_close}"
+            )
+
+        context = "\n".join(context_lines)
+        prompt = f"""You are a helpful financial analyst assistant. 
+Use the following real-time stock market data to answer the user's question.
+If the data is not available for a specific company mentioned, state that you don't have data for it.
+
+Data Context (Last 30 Days):
+{context}
+
+User Question: {req.message}
+
+Instructions: Provide a direct, data-driven answer based ONLY on the context provided above. Mention specific prices or percentages where relevant.
+"""
+        if not os.getenv("GEMINI_API_KEY"):
+            return {"reply": "Configuration Error: GEMINI_API_KEY is not set. Please add it to your .env file."}
+
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        return {"reply": response.text}
+    except Exception as e:
+        return {"reply": f"AI Error: {str(e)}"}
+
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 
 @app.get("/")

@@ -10,6 +10,7 @@ REST API, and visualizes insights through an interactive dashboard.
 - **Backend:** FastAPI, SQLAlchemy, SQLite
 - **Data:** yfinance, Pandas, NumPy
 - **Frontend:** Vanilla JS, Chart.js
+- **AI:** Google Gemini API
 - **Server:** Uvicorn
 
 ---
@@ -17,7 +18,7 @@ REST API, and visualizes insights through an interactive dashboard.
 ## Setup & Installation
 
 ### 1. Clone the repository
-```bash
+```powershell
 git clone https://github.com/PardhuWebDev/stock-dashboard.git
 cd stock-dashboard
 ```
@@ -30,6 +31,7 @@ pip install -r requirements.txt
 
 ### 3. Start the server
 ```bash
+cd backend
 uvicorn main:app --reload --port 8001
 ```
 
@@ -51,6 +53,7 @@ it locally in a SQLite database.
 | `/data/{symbol}` | GET | Returns last 30 days of OHLCV data |
 | `/summary/{symbol}` | GET | Returns 52W high, low, avg close, volatility score |
 | `/compare?symbol1=INFY&symbol2=TCS` | GET | Normalized % return comparison between two stocks |
+| `/chat` | POST | AI Assistant powered by Gemini answering data-driven questions |
 
 Interactive API documentation is available at `http://127.0.0.1:8001/docs`.
 
@@ -66,6 +69,7 @@ Interactive API documentation is available at `http://127.0.0.1:8001/docs`.
 - Stock comparison with normalized percentage returns
 - Recent sessions table with daily return indicators
 - Fully documented REST API via Swagger UI
+- **AI Assistant:** Chat endpoint using Google Gemini to answer questions based on real-time 30-day context
 
 ---
 
