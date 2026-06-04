@@ -69,10 +69,11 @@ def get_summary(symbol: str, db: Session = Depends(get_db)):
         StockPrice.symbol == full_symbol,
         StockPrice.date >= cutoff
     ).all()
-    if not rows:
-        raise HTTPException(status_code=404, detail="Symbol not found")
-    closes = [r.close for r in rows]
-    returns = [r.daily_return for r in rows if r.daily_return is not None]
+if not rows:
+    raise HTTPException(status_code=404, detail="Symbol not found")
+rows = [r for r in rows if r.high is not None and r.low is not None and r.close is not None]
+closes = [r.close for r in rows]
+returns = [r.daily_return for r in rows if r.daily_return is not None]
     return {
         "symbol": full_symbol,
         "52w_high": round(max(r.high for r in rows), 2),
@@ -98,9 +99,12 @@ def compare_stocks(symbol1: str, symbol2: str, db: Session = Depends(get_db)):
     if not rows1 or not rows2:
         raise HTTPException(status_code=404, detail="One or both symbols not found")
 
-    def normalize(rows):
-        base = rows[0].close
-        return [round((r.close - base) / base * 100, 2) for r in rows]
+def normalize(rows):
+    rows = [r for r in rows if r.close is not None]
+    if not rows:
+        return []
+    base = rows[0].close
+    return [round((r.close - base) / base * 100, 2) for r in rows]
 
     return {
         symbol1: {"dates": [str(r.date) for r in rows1], "normalized": normalize(rows1)},
