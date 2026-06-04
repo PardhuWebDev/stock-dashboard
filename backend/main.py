@@ -159,6 +159,15 @@ Instructions: Provide a direct, data-driven answer based ONLY on the context pro
     except Exception as e:
         return {"reply": f"AI Error: {str(e)}"}
 
+@app.get("/refresh")
+def refresh_data():
+    db = next(get_db())
+    try:
+        fetch_and_store(db)
+        return {"status": "success", "message": "Data fetched successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 
 @app.get("/")
