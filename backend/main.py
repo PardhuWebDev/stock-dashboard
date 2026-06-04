@@ -26,7 +26,10 @@ def startup():
     count = db.query(StockPrice).count()
     if count == 0:
         print("📦 No data found, fetching from yfinance...")
-        fetch_and_store(db)
+        try:
+            fetch_and_store(db)
+        except Exception as e:
+            print(f"⚠️ Startup fetch failed: {e}. Server starting anyway.")
 
 @app.get("/companies")
 def get_companies():
