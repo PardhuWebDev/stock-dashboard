@@ -61,6 +61,7 @@ def get_stock_data(symbol: str, db: Session = Depends(get_db)):
         for r in rows
     ]
 
+
 @app.get("/summary/{symbol}")
 def get_summary(symbol: str, db: Session = Depends(get_db)):
     full_symbol = symbol if ".NS" in symbol else symbol + ".NS"
@@ -69,18 +70,20 @@ def get_summary(symbol: str, db: Session = Depends(get_db)):
         StockPrice.symbol == full_symbol,
         StockPrice.date >= cutoff
     ).all()
-if not rows:
-    raise HTTPException(status_code=404, detail="Symbol not found")
-rows = [r for r in rows if r.high is not None and r.low is not None and r.close is not None]
-closes = [r.close for r in rows]
-returns = [r.daily_return for r in rows if r.daily_return is not None]
+    if not rows:
+        raise HTTPException(status_code=404, detail="Symbol not found")
+    rows = [r for r in rows if r.high is not None and r.low is not None and r.close is not None]
+    if not rows:
+        raise HTTPException(status_code=404, detail="No valid data found")
+    closes = [r.close for r in rows]
+    returns = [r.daily_return for r in rows if r.daily_return is not None]
     return {
         "symbol": full_symbol,
         "52w_high": round(max(r.high for r in rows), 2),
         "52w_low": round(min(r.low for r in rows), 2),
         "avg_close": round(sum(closes) / len(closes), 2),
         "volatility_score": round((max(closes) - min(closes)) / min(closes) * 100, 2),
-        "avg_daily_return": round(sum(returns) / len(returns) * 100, 4),
+        "avg_daily_return": round(sum(returns) / len(returns) * 100, 4) if returns else 0,
     }
 @app.get("/compare")
 def compare_stocks(symbol1: str, symbol2: str, db: Session = Depends(get_db)):
