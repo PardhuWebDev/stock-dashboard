@@ -347,7 +347,7 @@ async function loadStock(symbol, btn) {
   document.getElementById('loader').classList.add('show');
 
   const [stockRes, summRes] = await Promise.all([
-    fetch(`${API}/data/${name}`),
+    fetch(`${API}/data/${name}?days=${currentDays}`),
     fetch(`${API}/summary/${name}`)
   ]);
   const stockData = await stockRes.json();
